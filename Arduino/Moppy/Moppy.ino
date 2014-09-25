@@ -21,7 +21,7 @@ const byte PIN_MAX = 9;
  80 tracks, 5.25" have 50.  These should be doubled, because each tick is now
  half a position (use 158 and 98).
  */
-byte MAX_POSITION[] = {
+const byte MAX_POSITION[] = {
   0,0,158,0,158,0,158,0,158,158,158,0,158,0,158,0,158,0};
 
 //Array to track the current position of each floppy head.  (Only even indexes (i.e. 2,4,6...) are used)
@@ -46,13 +46,16 @@ unsigned int currentTick[] = {
   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 
 };
 
+boolean switched[] = {true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true};
+
 // initialize the library with the numbers of the interface pins
 LiquidCrystal lcd(12, 11, 7, 6, 5, 4);
 
 //Setup pins (Even-odd pairs for step control and direction
 void setup(){
   lcd.begin(16, 2);
-
+  pinMode(2, OUTPUT); // Step control 4
+  pinMode(3, OUTPUT); // Direction 4
   pinMode(8, OUTPUT); // Step control 4
   pinMode(9, OUTPUT); // Direction 4
   pinMode(10, OUTPUT); // Direction 4
@@ -72,14 +75,13 @@ void loop(){
   {
     firstRun = false;
     resetAll();
-    digitalWrite(10, LOW);
+    reset(2);
+    reset(10);
     delay(2000);
   }
 
   //Only read if we have 
   if (Serial.available() > 2){
-    digitalWrite(13, digitalRead(13)^1);
-    delay(100);
     //Watch for special 100-message to reset the drives
     if (Serial.peek() == 100) {
       resetAll();
@@ -106,10 +108,39 @@ void tick()
    ticks that pass, and toggle the pin if the current period is reached.
    */
   if (currentPeriod[2]>0){
+    switched[2] = false;
     currentTick[2]++;
     if (currentTick[2] >= currentPeriod[2]){
       togglePin(9,8);
       currentTick[2]=0;
+    }
+  } else {
+    if (currentState[8] == LOW) {
+      if (currentPosition[9] > MAX_POSITION[9]/2 && switched[2] == false) {
+        switched[2] = true;
+        digitalWrite(8,HIGH);
+        currentState[8] = HIGH;
+      }
+    } else if (currentPosition[9] < MAX_POSITION[9]/2 && switched[2] == false) {
+        switched[2] = true;
+        digitalWrite(8,LOW);
+        currentState[8] = LOW;
+      }
+  }
+
+  if (currentPeriod[4]>0){
+    currentTick[4]++;
+    if (currentTick[4] >= currentPeriod[4]){
+      togglePin(2,3);
+      currentTick[4]=0;
+    }
+  }
+
+  if (currentPeriod[6]>0){
+    currentTick[6]++;
+    if (currentTick[6] >= currentPeriod[6]){
+      togglePin(10,13);
+      currentTick[6]=0;
     }
   }
 }
@@ -197,3 +228,5 @@ void resetAll(){
   }
 
 }
+
+

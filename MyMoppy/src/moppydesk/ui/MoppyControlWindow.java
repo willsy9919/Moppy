@@ -247,7 +247,6 @@ public class MoppyControlWindow extends javax.swing.JFrame {
         
         for (int ch = 1; ch <= 16; ch++) {
             OutputSetting os = outputSettings[ch-1]; //OutputSettings are 0-indexed
-            os.comPort = "COM3";
             if (os.enabled) {
                 // MoppyPlayer/Receivers are grouped by COM port
                 if (os.type.equals(OutputSetting.OutputType.MOPPY)) {
