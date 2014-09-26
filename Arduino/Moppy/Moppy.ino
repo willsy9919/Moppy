@@ -3,10 +3,12 @@
 
 boolean firstRun = true; // Used for one-run-only stuffs;
 
-//First pin being used for floppies, and the last pin.  Used for looping over all pins.
-const byte FIRST_PIN = 9;
-const byte PIN_MAX = 9;
 #define RESOLUTION 40 //Microsecond resolution for notes
+
+// drive goes forward with dir pin low
+#define FORWARD LOW
+// drive goes backward with dir pin high
+#define REVERSE HIGH
 
 
 /*NOTE: Many of the arrays below contain unused indexes.  This is 
@@ -46,10 +48,88 @@ unsigned int currentTick[] = {
   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 
 };
 
-boolean switched[] = {true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true};
+boolean switched[] = {
+  true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true};
 
 // initialize the library with the numbers of the interface pins
 LiquidCrystal lcd(12, 11, 7, 6, 5, 4);
+
+class Drive {
+  unsigned int period, pos, tick, state, dir;
+  const unsigned int stepPin, dirPin, maxPos;
+  boolean switched;
+public:
+  Drive(unsigned int stepPin, unsigned int dirPin, unsigned int maxPos = 158) : 
+  stepPin(stepPin), dirPin(dirPin), maxPos(maxPos) {
+    reset();
+  }
+
+  void play() {
+    if (period > 0){
+      switched = false;
+      tick++;
+      if (tick >= period){
+        togglePin();
+        tick = 0;
+      }
+    } 
+    else {
+      if (dir == FORWARD) {
+        if (switched == false && pos > maxPos/2) {
+          switched = true;
+          digitalWrite(dirPin, REVERSE);
+          dir = REVERSE;
+        }
+      } 
+      else if (switched == false && pos < maxPos/2) {
+        switched = true;
+        digitalWrite(dirPin, FORWARD);
+        dir = FORWARD;
+      }
+    } 
+  }
+
+  void togglePin() {
+    //Switch directions if end has been reached
+    if (pos >= maxPos) {
+      dir = REVERSE;
+      digitalWrite(dirPin, REVERSE);
+    } 
+    else if (pos <= 0) {
+      dir = FORWARD;
+      digitalWrite(dirPin, FORWARD);
+    }
+
+    //Update currentPosition
+    if (dir == REVERSE){
+      pos--;
+    } 
+    else {
+      pos++;
+    }
+
+    //Pulse the control pin
+    state = ~state;
+    digitalWrite(stepPin, state);
+  }
+
+  void reset() {
+    digitalWrite(dirPin, REVERSE); // Go in reverse
+    for (byte s=0; s < maxPos; s+=2) { //Half max because we're stepping directly (no toggle)
+      digitalWrite(stepPin, HIGH);
+      digitalWrite(stepPin, LOW);
+      delay(5);
+    }
+    digitalWrite(dirPin, FORWARD);
+    period = 0;
+    pos = 0;
+    tick = 0;
+    state = LOW;
+    dir = FORWARD;
+    switched = false;
+  }
+};
+
 
 //Setup pins (Even-odd pairs for step control and direction
 void setup(){
@@ -75,8 +155,6 @@ void loop(){
   {
     firstRun = false;
     resetAll();
-    reset(2);
-    reset(10);
     delay(2000);
   }
 
@@ -103,130 +181,19 @@ Called by the timer inturrupt at the specified resolution.
  */
 void tick()
 {
-  /* 
-   If there is a period set for control pin 2, count the number of
-   ticks that pass, and toggle the pin if the current period is reached.
-   */
-  if (currentPeriod[2]>0){
-    switched[2] = false;
-    currentTick[2]++;
-    if (currentTick[2] >= currentPeriod[2]){
-      togglePin(9,8);
-      currentTick[2]=0;
-    }
-  } else {
-    if (currentState[8] == LOW) {
-      if (currentPosition[9] > MAX_POSITION[9]/2 && switched[2] == false) {
-        switched[2] = true;
-        digitalWrite(8,HIGH);
-        currentState[8] = HIGH;
-      }
-    } else if (currentPosition[9] < MAX_POSITION[9]/2 && switched[2] == false) {
-        switched[2] = true;
-        digitalWrite(8,LOW);
-        currentState[8] = LOW;
-      }
-  }
 
-  if (currentPeriod[4]>0){
-    currentTick[4]++;
-    if (currentTick[4] >= currentPeriod[4]){
-      togglePin(2,3);
-      currentTick[4]=0;
-    }
-  }
-
-  if (currentPeriod[6]>0){
-    currentTick[6]++;
-    if (currentTick[6] >= currentPeriod[6]){
-      togglePin(10,13);
-      currentTick[6]=0;
-    }
-  }
 }
 
-void togglePin(byte pin, byte direction_pin) {
-
-  //Switch directions if end has been reached
-  if (currentPosition[pin] >= MAX_POSITION[pin]) {
-    currentState[direction_pin] = HIGH;
-    digitalWrite(direction_pin,HIGH);
-    digitalWrite(10, HIGH);
-  } 
-  else if (currentPosition[pin] <= 0) {
-    currentState[direction_pin] = LOW;
-    digitalWrite(direction_pin,LOW);
-    digitalWrite(10, LOW);
-  }
-
-  //Update currentPosition
-  if (currentState[direction_pin] == HIGH){
-    currentPosition[pin]--;
-  } 
-  else {
-    currentPosition[pin]++;
-  }
-
-  //Pulse the control pin
-  digitalWrite(pin,currentState[pin]);
-  currentState[pin] = ~currentState[pin];
-}
-
-
-//
-//// UTILITY FUNCTIONS
-//
-
-//Not used now, but good for debugging...
-void blinkLED(){
-  digitalWrite(13, HIGH); // set the LED on
-  delay(250);              // wait for a second
-  digitalWrite(13, LOW); 
-}
-
-//For a given controller pin, runs the read-head all the way back to 0
-void reset(byte pin)
-{
-  digitalWrite(pin+1,HIGH); // Go in reverse
-  for (byte s=0;s<MAX_POSITION[pin];s+=2){ //Half max because we're stepping directly (no toggle)
-    digitalWrite(pin,HIGH);
-    digitalWrite(pin,LOW);
-    delay(5);
-  }
-  currentPosition[pin] = 0; // We're reset.
-  digitalWrite(pin+1,LOW);
-  currentPosition[pin+1] = 0; // Ready to go forward.
-}
 
 //Resets all the pins
 void resetAll(){
 
-  // Old one-at-a-time reset
-  //for (byte p=FIRST_PIN;p<=PIN_MAX;p+=2){
-  //  reset(p);
-  //}
-
-  //Stop all notes (don't want to be playing during/after reset)
-  for (byte p=FIRST_PIN;p<=PIN_MAX;p+=2){
-    currentPeriod[p] = 0; // Stop playing notes
-  }
-
-  // New all-at-once reset
-  for (byte s=0;s<80;s++){ // For max drive's position
-    for (byte p=FIRST_PIN;p<=PIN_MAX;p+=2){
-      digitalWrite(p+1,HIGH); // Go in reverse
-      digitalWrite(p,HIGH);
-      digitalWrite(p,LOW);
-    }
-    delay(5);
-  }
-
-  for (byte p=FIRST_PIN;p<=PIN_MAX;p+=2){
-    currentPosition[p] = 0; // We're reset.
-    digitalWrite(p+1,LOW);
-    currentState[p+1] = 0; // Ready to go forward.
-  }
 
 }
+
+
+
+
+
 
 
