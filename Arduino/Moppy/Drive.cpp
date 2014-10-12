@@ -7,9 +7,11 @@ stepPin(-1), dirPin(-1), maxPos(0){
 
 Drive::Drive(unsigned int stepPin, unsigned int dirPin, unsigned int maxPos) : 
 stepPin(stepPin), dirPin(dirPin), maxPos(maxPos) {
+  switching = false;
   pinMode(stepPin, OUTPUT);
   pinMode(dirPin, OUTPUT);
   reset();
+  setPos(40);
 }
 
 void Drive::play() {
@@ -21,7 +23,7 @@ void Drive::play() {
       tick = 0;
     }
   } 
-  else {
+  else if(switching) {
     if (dir == LOW) {
       if (switched == false && pos > maxPos/2) {
         switched = true;
@@ -60,6 +62,44 @@ void Drive::togglePin() {
   
   digitalWrite(stepPin, state);
   state = ~state;
+}
+
+void Drive::togglePinBAF() {
+  //Switch directions if end has been reached
+  if (state == LOW) {
+    dir = ~dir;
+    digitalWrite(dirPin, dir);
+  }
+
+  //Update currentPosition
+  if (dir == HIGH){
+    pos--;
+  } 
+  else {
+    pos++;
+  }
+
+  //Pulse the control pin
+  
+  digitalWrite(stepPin, state);
+  state = ~state;
+}
+
+void Drive::setPos(int newPos) {
+  if (newPos > pos) {
+    digitalWrite(dirPin, FORWARD);
+    dir = FORWARD;
+  } else {
+    digitalWrite(dirPin, REVERSE);
+    dir = REVERSE;
+  }
+  int diff = abs(newPos - pos);
+  for (byte s=0; s < diff; s+=2) {
+    digitalWrite(stepPin, HIGH);
+    digitalWrite(stepPin, LOW);
+    delay(5);
+  }
+  pos = newPos;
 }
 
 void Drive::reset() {

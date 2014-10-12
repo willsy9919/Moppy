@@ -11,7 +11,7 @@
 class Drive {
   unsigned int pos, tick, state, dir;
   unsigned int stepPin, dirPin, maxPos;
-  boolean switched;
+  boolean switched, switching;
 public:
   unsigned int period;
   
@@ -22,6 +22,9 @@ public:
   void play();
 
   void togglePin();
+  void togglePinBAF();
+
+  void setPos(int newPos);
 
   void reset();
   

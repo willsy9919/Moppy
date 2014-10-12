@@ -4,7 +4,7 @@
 
 #define RESOLUTION 40 //Microsecond resolution for notes
 
-#define TOTAL_DRIVES 5
+#define TOTAL_DRIVES 8
 
 // initialize the library with the numbers of the interface pins
 LiquidCrystal lcd(12, 11, 7, 6, 5, 4);
@@ -19,7 +19,11 @@ void setup(){
   drives [1] = Drive(50, 51);
   drives [2] = Drive(48, 49);
   drives [3] = Drive(46, 47);
-  drives [4] = Drive(44, 45);
+  
+  drives [4] = Drive(24, 25);
+  drives [5] = Drive(26, 27);
+  drives [6] = Drive(28, 29);
+  drives [7] = Drive(22, 23);
 
   Timer1.initialize(RESOLUTION); // Set up a timer at the defined resolution
   Timer1.attachInterrupt(tick); // Attach the tick function
